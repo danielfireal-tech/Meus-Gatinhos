@@ -32,6 +32,7 @@
       box-shadow: 0 2px 5px rgba(0,0,0,0.1);
       max-width: 350px;
       text-align: left;
+      position: relative;
     }
 
     h2 {
@@ -53,6 +54,25 @@
       border-radius: 8px;
       margin-bottom: 10px;
       display: block;
+    }
+
+    /* Botão de excluir */
+    .excluir {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background-color: #e74c3c;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 28px;
+      height: 28px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .excluir:hover {
+      background-color: #c0392b;
     }
 
     /* Formulário */
@@ -89,28 +109,9 @@
 <body>
   <h1>Fichas dos Gatos</h1>
 
-  <div class="container" id="lista-gatos">
-    <!-- Fichas iniciais -->
-    <div class="gato">
-      <h2>Frajola Copinho</h2>
-      <img src="frajola.jpg" alt="Frajola Copinho" />
-      <p><strong>Data de nascimento:</strong> 27 de agosto de 2025</p>
-      <p><strong>Idade atual:</strong> <span class="dias-vida" id="dias-frajola"></span> dias de vida</p>
-      <p><strong>Alimentação:</strong> Ração para filhotes (até 12 meses)</p>
-      <p><strong>Observações:</strong> Gato preto com patas brancas e olhos cinzas</p>
-    </div>
+  <div class="container" id="lista-gatos"></div>
 
-    <div class="gato">
-      <h2>Nial Caixinha</h2>
-      <img src="nial.jpg" alt="Nial Caixinha" />
-      <p><strong>Data de nascimento:</strong> 27 de agosto de 2025</p>
-      <p><strong>Idade atual:</strong> <span class="dias-vida" id="dias-nial"></span> dias de vida</p>
-      <p><strong>Alimentação:</strong> Ração para filhotes (até 12 meses)</p>
-      <p><strong>Observações:</strong> Gato branco com manchas cinzas claras</p>
-    </div>
-  </div>
-
-  <!-- Formulário para novos gatos -->
+  <!-- Formulário -->
   <div class="formulario">
     <h2>Adicionar novo gato 🐾</h2>
     <input type="text" id="nome" placeholder="Nome do gato" required>
@@ -130,11 +131,28 @@
       return diffDays >= 0 ? diffDays : 0;
     }
 
-    // Atualiza idade dos gatos iniciais
-    document.getElementById('dias-frajola').textContent = calcularDiasVida('2025-08-27');
-    document.getElementById('dias-nial').textContent = calcularDiasVida('2025-08-27');
+    // Carrega gatos do localStorage
+    function carregarGatos() {
+      const lista = document.getElementById('lista-gatos');
+      lista.innerHTML = ''; // limpa antes de renderizar
 
-    // Função para adicionar novo gato
+      const gatos = JSON.parse(localStorage.getItem('gatos') || '[]');
+      gatos.forEach((gato, index) => {
+        const div = document.createElement('div');
+        div.classList.add('gato');
+        div.innerHTML = `
+          <button class="excluir" onclick="excluirGato(${index})">×</button>
+          <h2>${gato.nome}</h2>
+          ${gato.foto ? `<img src="${gato.foto}" alt="${gato.nome}">` : ''}
+          <p><strong>Data de nascimento:</strong> ${new Date(gato.nascimento).toLocaleDateString('pt-BR')}</p>
+          <p><strong>Idade atual:</strong> <span class="dias-vida">${calcularDiasVida(gato.nascimento)}</span> dias de vida</p>
+          <p><strong>Observações:</strong> ${gato.observacoes || 'Sem observações'}</p>
+        `;
+        lista.appendChild(div);
+      });
+    }
+
+    // Adiciona novo gato
     function adicionarGato() {
       const nome = document.getElementById('nome').value.trim();
       const nascimento = document.getElementById('nascimento').value;
@@ -146,34 +164,64 @@
         return;
       }
 
-      const dias = calcularDiasVida(nascimento);
-      const lista = document.getElementById('lista-gatos');
-      const novoGato = document.createElement('div');
-      novoGato.classList.add('gato');
+      const gatos = JSON.parse(localStorage.getItem('gatos') || '[]');
 
-      // Se tiver imagem, cria URL temporária
-      let imagemHTML = '';
-      if (fotoInput.files && fotoInput.files[0]) {
-        const url = URL.createObjectURL(fotoInput.files[0]);
-        imagemHTML = `<img src="${url}" alt="${nome}">`;
+      // Função para salvar gato no localStorage
+      function salvarGato(fotoBase64 = '') {
+        gatos.push({ nome, nascimento, foto: fotoBase64, observacoes });
+        localStorage.setItem('gatos', JSON.stringify(gatos));
+        carregarGatos();
+
+        // Limpa o formulário
+        document.getElementById('nome').value = '';
+        document.getElementById('nascimento').value = '';
+        document.getElementById('foto').value = '';
+        document.getElementById('observacoes').value = '';
       }
 
-      novoGato.innerHTML = `
-        <h2>${nome}</h2>
-        ${imagemHTML}
-        <p><strong>Data de nascimento:</strong> ${new Date(nascimento).toLocaleDateString('pt-BR')}</p>
-        <p><strong>Idade atual:</strong> <span class="dias-vida">${dias}</span> dias de vida</p>
-        <p><strong>Observações:</strong> ${observacoes || 'Sem observações'}</p>
-      `;
-
-      lista.appendChild(novoGato);
-
-      // Limpa os campos
-      document.getElementById('nome').value = '';
-      document.getElementById('nascimento').value = '';
-      document.getElementById('foto').value = '';
-      document.getElementById('observacoes').value = '';
+      // Se tiver imagem, converte para base64 antes de salvar
+      if (fotoInput.files && fotoInput.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          salvarGato(e.target.result);
+        };
+        reader.readAsDataURL(fotoInput.files[0]);
+      } else {
+        salvarGato();
+      }
     }
+
+    // Exclui gato
+    function excluirGato(index) {
+      const gatos = JSON.parse(localStorage.getItem('gatos') || '[]');
+      if (confirm(`Deseja realmente excluir ${gatos[index].nome}?`)) {
+        gatos.splice(index, 1);
+        localStorage.setItem('gatos', JSON.stringify(gatos));
+        carregarGatos();
+      }
+    }
+
+    // Inicializa com alguns exemplos se estiver vazio
+    if (!localStorage.getItem('gatos')) {
+      const exemplo = [
+        {
+          nome: "Frajola Copinho",
+          nascimento: "2025-08-27",
+          foto: "frajola.jpg",
+          observacoes: "Gato preto com patas brancas e olhos cinzas"
+        },
+        {
+          nome: "Nial Caixinha",
+          nascimento: "2025-08-27",
+          foto: "nial.jpg",
+          observacoes: "Gato branco com manchas cinzas claras"
+        }
+      ];
+      localStorage.setItem('gatos', JSON.stringify(exemplo));
+    }
+
+    // Carrega tudo ao abrir a página
+    carregarGatos();
   </script>
 </body>
 </html>
